@@ -1,0 +1,93 @@
+version: '3'
+services:
+  db:
+      image: postgres:12
+      container_name: nugets_db
+      hostname: nugets_db
+      env_file: devops/docker/postgres/.env
+      volumes:
+          - db_data:/var/lib/postgresql/
+          - ./devops/docker/backups/dumps/:/dumps/
+
+  web:
+      build: ./backend
+      command: /usr/local/bin/gunicorn nugets.wsgi:application -w 3 -b :8000 --reload
+      container_name: nugets_web
+      hostname: nugets_web
+      volumes:
+          - ./backend/:/backend/
+      ports:
+          - "8000:8000"
+      links:
+          - db
+          - redis:redis
+          - rabbit
+      env_file: ./backend/.env
+      depends_on:
+          - db
+
+  nginx:
+      build: ./devops/docker/nginx/
+      container_name: nugets_nginx
+      hostname: nugets_nginx
+      ports:
+          - "80:80"
+          - "443:443"
+      volumes:
+          - ./backend/static:/www/static
+          - ./devops/docker/nginx/certs:/etc/letsencrypt/
+          - ./devops/docker/nginx/sites-enabled/:/etc/nginx/sites-enabled/
+          - ./devops/docker/nginx/configs/:/etc/letsencrypt/configs/
+      links:
+          - web:web
+
+  redis:
+      restart: always
+      image: redis:latest
+      hostname: redis
+
+  # RabbitMQ
+  rabbit:
+    image: rabbitmq:latest
+    hostname: rabbit
+    env_file: devops/docker/rabbit/.env
+    ports:
+      - "5672:5672"  # for debugging
+      - "15672:15672"  # rabbitmq management plugin
+
+  # Celery Worker
+  worker:
+    build: ./backend
+    command: ./wait-for-it.sh rabbit:5672 --timeout=30 -- celery -A nugets worker -l info
+    user: tasksuser
+    container_name: nugets_worker
+    hostname: nugets_worker
+    volumes:
+      - ./backend/:/backend/
+    links:
+      - db
+      - rabbit
+      - redis
+    env_file: ./backend/.env
+    depends_on:
+      - rabbit
+
+ # Celery beat
+  beat:
+    build: ./backend
+    command: ["./wait-for-it.sh", "db:5432", "--timeout=30", "--", "celery", "-A", "nugets", "beat", "-l", "info", "-S", "django"] #sh -c "sleep 40 && celery -A LEV beat -l info -S django"
+    container_name: nugets_beat
+    hostname: nugets_beat
+    volumes:
+      - ./backend/:/backend/
+    links:
+      - db
+      - rabbit
+      - redis
+    env_file: ./backend/.env
+    depends_on:
+      - db
+      - rabbit
+
+volumes:
+  db_data:
