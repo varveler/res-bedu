@@ -12,7 +12,7 @@ RUN git clone https://github.com/certbot/certbot /opt/letsencrypt
 RUN cd /etc \
     && mkdir -p /letsencrypt/configs
 
-ADD configs/nugets.com.mx.conf /etc/letsencrypt/configs/
+#ADD configs/res.com.mx.conf /etc/letsencrypt/configs/
 
 RUN cd /var \
     && mkdir -p www/letsencrypt \

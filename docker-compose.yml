@@ -2,8 +2,8 @@ version: '3'
 services:
   db:
       image: postgres:12
-      container_name: nugets_db
-      hostname: nugets_db
+      container_name: res_db
+      hostname: res_db
       env_file: devops/docker/postgres/.env
       volumes:
           - db_data:/var/lib/postgresql/
@@ -11,9 +11,9 @@ services:
 
   web:
       build: ./backend
-      command: /usr/local/bin/gunicorn nugets.wsgi:application -w 3 -b :8000 --reload
-      container_name: nugets_web
-      hostname: nugets_web
+      command: /usr/local/bin/gunicorn backend.wsgi:application -w 3 -b :8000 --reload
+      container_name: res_web
+      hostname: res_web
       volumes:
           - ./backend/:/backend/
       ports:
@@ -28,11 +28,11 @@ services:
 
   nginx:
       build: ./devops/docker/nginx/
-      container_name: nugets_nginx
-      hostname: nugets_nginx
+      container_name: res_nginx
+      hostname: res_nginx
       ports:
           - "80:80"
-          - "443:443"
+          #- "443:443"
       volumes:
           - ./backend/static:/www/static
           - ./devops/docker/nginx/certs:/etc/letsencrypt/
@@ -58,10 +58,10 @@ services:
   # Celery Worker
   worker:
     build: ./backend
-    command: ./wait-for-it.sh rabbit:5672 --timeout=30 -- celery -A nugets worker -l info
+    command: ./wait-for-it.sh rabbit:5672 --timeout=30 -- celery -A backend worker -l info
     user: tasksuser
-    container_name: nugets_worker
-    hostname: nugets_worker
+    container_name: res_worker
+    hostname: res_worker
     volumes:
       - ./backend/:/backend/
     links:
@@ -75,9 +75,9 @@ services:
  # Celery beat
   beat:
     build: ./backend
-    command: ["./wait-for-it.sh", "db:5432", "--timeout=30", "--", "celery", "-A", "nugets", "beat", "-l", "info", "-S", "django"] #sh -c "sleep 40 && celery -A LEV beat -l info -S django"
-    container_name: nugets_beat
-    hostname: nugets_beat
+    command: ["./wait-for-it.sh", "db:5432", "--timeout=30", "--", "celery", "-A", "backend", "beat", "-l", "info", "-S", "django"] #sh -c "sleep 40 && celery -A LEV beat -l info -S django"
+    container_name: res_beat
+    hostname: res_beat
     volumes:
       - ./backend/:/backend/
     links:

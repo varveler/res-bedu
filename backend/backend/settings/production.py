@@ -1,6 +1,6 @@
 from .base import *
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ['0f3fdd9d.ngrok.io', 'localhost',]
+ALLOWED_HOSTS = ['res.com?']
